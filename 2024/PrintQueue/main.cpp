@@ -2,74 +2,14 @@
 using namespace std;
 
 map<int, vector<int>> graph;
-map<int,int> indeg;
-set<int> nodes;
-vector<int> topoSort;
-int midPageSum = 0;
+int midPageSum = 0, midPageSumPart2 = 0;
 
-void print(vector<int>& nums) {
-	cout << "Vector Size: " << nums.size() << "\n";
-	for(auto& num: nums) {
-		cout << num << " ";
-	}
-	cout << "\n";
-}
-
-void print(map<int,int>& ump) {
-	for(auto &pr: ump) {
-		cout << pr.first << " " << pr.second << "\n";
-	}
-}
-
-void print(set<int>& st) {
-	cout << "Set Size: " << st.size() << "\n";
-	for(auto& num: st) {
-		cout << num << " ";
-	}
-	cout << "\n";
-}
-
-vector<int> bfs(int node) {
-	map<int,int> visited;
-	
-	queue<int> q;
-	q.push(node);
-	
-	vector<int> traversal;
-	
-	visited[node] = 1;
-	
-	while(!q.empty()) {
-		int node = q.front(); q.pop();
-		traversal.push_back(node);
-		
-		for(auto adjNode: graph[node]) {
-			if(!visited[adjNode]) {
-				visited[adjNode] = 1;
-				q.push(adjNode);
-			}
-		}
-	}
-	return traversal;
-}
-
-void topologicalSort() {
-	queue<int> q;
-	
-	for(auto node: indeg) {
-		if(indeg[node.first] == 0) {
-			q.push(node.first);
-		}
-	}
-	
-	while(!q.empty()) {
-		int node = q.front(); q.pop();
-		topoSort.push_back(node);
-		
-		for(auto adjNode: graph[node]) {
-			indeg[adjNode] -= 1;
-			if(indeg[adjNode] == 0) {
-				q.push(adjNode);
+void topoSort(int node, vector<int>& topo, const set<int>& updateNodes, map<int,int>& indeg) {
+	topo.push_back(node);
+	for(auto adjNode: graph[node]) {
+		if(updateNodes.count(adjNode)) {
+			if(--indeg[adjNode] == 0) {
+				topoSort(adjNode, topo, updateNodes, indeg);
 			}
 		}
 	}
@@ -88,29 +28,58 @@ void addEdge(string& line) {
 	}
 	
 	graph[u].push_back(v);
-	indeg[u] += 0;
-	indeg[v] += 1;
-	
-	nodes.insert(u);
-	nodes.insert(v);
 }
 
 void checkOrder(vector<int>& update) {
-	int mid = update.size() / 2;
+	bool isValid = true;
+	// Maintain a visited set that tells me if a node is visited before
+	set<int> visited;
 	
-	int tidx = 0, uidx = 0;
+	// set of all nodes in the update list
+	set<int> updateNodes(update.begin(), update.end());
 	
-	while(tidx < topoSort.size() && uidx < update.size()) {
-		while(tidx < topoSort.size() && topoSort[tidx] != update[uidx]) {
-			tidx++;
+	// indegree of the nodes
+	map<int,int> indeg;
+	
+	// Iterate through each node of update and check if any of the adjNode appear previously in the update array. It is not a valid order.
+	for(int i = 0; i < update.size(); ++i) {
+		int node = update[i];
+		for(auto adjNode: graph[node]) {
+			
+			if(updateNodes.count(adjNode)) {
+				++indeg[adjNode];
+			}
+			
+			if(visited.count(adjNode)) {
+				isValid = false;
+			}
 		}
-		tidx++;
-		uidx++;
+		visited.insert(node);
 	}
 	
-	if(uidx == update.size()) {
-		// Correct Update Order
+	int mid;
+	if(isValid) {
+		mid = update.size() / 2;
 		midPageSum += update[mid];
+	} else {
+		// Part 2
+		// Fix the ordering of the update.
+		vector<int> topo;
+		
+		vector<int> statNodes;
+		
+		for(auto node: update) {
+			if(indeg[node] == 0) {
+				statNodes.push_back(node);
+			}
+		}
+		
+		for(auto node: statNodes) {
+			topoSort(node,topo,updateNodes,indeg);
+		}
+		
+		mid = topo.size() / 2;
+		midPageSumPart2 += topo[mid];
 	}
 }
 
@@ -132,7 +101,7 @@ void handleInput(string& line) {
 	if(line.find("|") != string::npos) {
 		addEdge(line);
 	} else{
-		// handleUpdate(line);
+		handleUpdate(line);
 	}
 }
 
@@ -149,12 +118,11 @@ int main(int argc, char const *argv[]) {
 	for(string line; getline(cin,line);) {
 		if(line.size() != 0) {
 			handleInput(line);
-		} else {
-			// topologicalSort();
 		}
 	}
 	
-	cout << midPageSum;
+	cout << midPageSum << "\n";
+	cout << midPageSumPart2 << "\n";
 
 	return 0;
 }
