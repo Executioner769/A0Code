@@ -1,200 +1,189 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-void generateShortestPathMap(vector<string>& grid, map<pair<char,char>,string>& mp, vector<vector<int>>& dirs, vector<char>& dMap) {
-	int R = grid.size();
-	int C = grid[0].length();
+using Point = pair<int,int>;
 
-	for(int r = 0; r < R; ++r) {
-		for(int c = 0; c < C; ++c) {
-			
-			queue<pair<string,vector<int>>> q;
-			q.push({"", {r,c}});
-			
-			vector<vector<int>> visited(R, vector<int>(C,0));
-			
-			visited[r][c] = 1;
-			
-			while(!q.empty()) {
-				auto node = q.front(); q.pop();
-				string path = node.first;
-				
-				int row = node.second[0];
-				int col = node.second[1];
-				
-				path.push_back('A');
-				mp[{grid[r][c], grid[row][col]}] = path;
-				path.pop_back();
-				
-				for(int d = 0; d < 4; ++d) {
-					auto dir = dirs[d];
-					int nrow = row + dir[0];
-					int ncol = col + dir[1];
-					
-					// In bounds
-					if(nrow < R && ncol < C && nrow >= 0 && ncol >= 0) {
-						
-						if(!visited[nrow][ncol] && grid[nrow][ncol] != '#') {
-							visited[nrow][ncol] = 1;
-							path.push_back(dMap[d]);
-							q.push({path,{nrow,ncol}});
-							path.pop_back();
-						}
-						
-					}
+struct Keypad {
+
+	map<char, Point> chMap;
+	map<Point, char> poMap;
+
+	// Current Key Position
+	int row, col;
+
+	Keypad(vector<string> grid) {
+		int rows = grid.size();
+		int cols = grid[0].length();
+
+		for(int r = 0; r < rows; ++r) {
+			for(int c = 0; c < cols; ++c) {
+				char key = grid[r][c];
+				chMap[key] = {r,c};
+				poMap[{r,c}] = key;
+
+				if(key == 'A') {
+					row = r;
+					col = c;
 				}
 			}
-						
 		}
 	}
+
+	bool isValidPath(string& path) {
+		int nr = row;
+		int nc = col;
+
+		for(char& dir: path) {
+			if(dir == '^') {
+				nr -= 1;
+			} else if(dir == '>') {
+				nc += 1;
+			} else if(dir == 'v') {
+				nr += 1;
+			} else if(dir == '<') {
+				nc -= 1;
+			}
+
+			if(poMap[{nr,nc}] == '#') return false;
+		}
+
+		return true;
+	}
+
+	void moveToKey(char key) {
+		Point p = chMap[key];
+		row = p.first;
+		col = p.second;
+	}
+
+	vector<string> getPathsToKey(char key) {
+		string path;
+
+		Point p = chMap[key];
+		int nrow = p.first;
+		int ncol = p.second;
+
+		// cold ..... cnew
+		if(ncol > col) {
+			path += string(ncol-col,'>');
+		}
+
+		// cnew ...... cold
+		if(ncol < col) {
+			path += string(col-ncol,'<');
+		}
+
+		// rold
+		// ....
+		// rnew
+		if(nrow > row) {
+			path += string(nrow-row,'v');
+		}
+
+		// rnew
+		// ....
+		// rold
+		if(nrow < row) {
+			path += string(row-nrow,'^');
+		}
+
+		vector<string> paths;
+		sort(path.begin(), path.end());
+
+		do {
+			if(isValidPath(path)) {
+				paths.push_back(path + "A");
+			}
+		} while(next_permutation(path.begin(), path.end()));
+
+		return paths;
+	}
+
+};
+
+uint64_t findMinLength(const string& sequence, int depth, const int maxDepth,  map<pair<int, string>, uint64_t>& cache) {
+
+	if(depth == maxDepth) {
+		return sequence.length();
+	}
+
+	const auto ptr = cache.find({depth, sequence});
+	if(ptr != cache.end()) {
+		return ptr->second;
+	}
+
+	uint64_t totalLen{};
+
+	vector<string> dirGrid = { "#^A", "<v>"};
+	Keypad dirpad(dirGrid);
+
+	for(char key: sequence) {
+		vector<string> pathsToKey = dirpad.getPathsToKey(key);
+		dirpad.moveToKey(key);
+
+		uint64_t minLen = numeric_limits<uint64_t>::max();
+
+		for(const auto& path: pathsToKey) {
+			uint64_t len = findMinLength(path, depth+1, maxDepth, cache);
+			minLen = min(minLen, len);
+		}
+
+		totalLen += minLen;
+	}
+
+	cache[{depth,sequence}] = totalLen;
+	return totalLen;
 }
+
+size_t findMinLength(const string& code, int maxDepth) {
+	vector<string> numGrid = {"789","456","123","#0A"};
+
+	Keypad numpad(numGrid);
+
+	vector<string> totalPaths;
+
+	totalPaths.push_back("");
+
+	for(const char& key: code) {
+		vector<string> pathsToKey = numpad.getPathsToKey(key);
+		numpad.moveToKey(key);
+
+		vector<string> newPaths;
+
+		for(const auto& path: totalPaths) {
+			for(const auto& keyPath: pathsToKey) {
+				newPaths.push_back(path + keyPath);
+			}
+		}
+		
+		totalPaths = newPaths;
+	}
+
+	map<pair<int,string>, uint64_t> cache;
+
+	uint64_t minLen = numeric_limits<uint64_t>::max();
+
+	for(const auto& path: totalPaths) {
+		uint64_t len = findMinLength(path, 0, maxDepth, cache);
+		minLen = min(minLen, len);
+	}
+
+	return minLen;
+}
+
 
 int main(int argc, char const *argv[]) {
 
-	ios::sync_with_stdio(0);
-    cin.tie(0);
-	
-	#ifdef ONLINEJUDGE
-	   freopen("input.txt","r",stdin);
-	   freopen("output.txt","w",stdout);
-	#endif
-	
-	vector<string> dialpad = {
-		"789",
-		"456",
-		"123",
-		"#0A"
-	};
-	
-	vector<string> movepad = {
-		"#^A",
-		"<v>"
-	};
-	
-	vector<vector<int>> dirs = {{-1,0}, {0,1}, {1,0}, {0,-1}};
-	vector<char> dMap = {'^', '>', 'v', '<'};
-	
-	map<pair<char,char>,string> dialpadMap;
-	generateShortestPathMap(dialpad, dialpadMap, dirs, dMap);
-	
-	dirs = {{1,0}, {0,1}, {-1,0}, {0,-1}};
-	dMap = {'v', '>', '^', '<'};
-	
-	map<pair<char,char>,string> movepadMap;
-	generateShortestPathMap(movepad, movepadMap, dirs, dMap);
-	
 	string code;
-	char from = 'A';
-	
-	int totalComplexity = 0; 
+	size_t total = 0l;
 	while(getline(cin,code)) {
-
-		int totalLen = 0;
-		
-		
-		int codeNum = 0;
-		for(auto to: code) {
-			
-			// printf("%c --> %c: ",from, to);
-			
-			string temp1, temp2;
-			if(isdigit(to)) {
-				codeNum = codeNum * 10 + to - '0';
-			}
-			
-			temp1 = dialpadMap[{from,to}];
-
-			int len1 = 0;
-			char from1 = 'A';
-			for(auto to1: temp1) {
-				
-				string r2code1, r2code2;
-				int r2len1 = 0;
-				
-				r2code1 = movepadMap[{from1,to1}];
-				
-				char from3 = 'A';
-				for(auto to3: r2code1) {
-					r2len1 += movepadMap[{from3,to3}].length();
-					from3 = to3;
-				}
-				
-				r2code2 = r2code1;
-				r2code2.pop_back();
-				reverse(r2code2.begin(), r2code2.end());
-				r2code2.push_back('A');
-				
-				int r2len2 = 0;
-				from3 = 'A';
-				for(auto to3: r2code2) {
-					r2len2 += movepadMap[{from3,to3}].length();
-					from3 = to3;
-				}
-				
-				if(r2len1 > r2len2) {
-					swap(r2len1, r2len2);
-				}
-				
-				len1 += r2len1;
-				
-				from1 = to1;
-			}
-			
-			// printf(" T1: %s %d", temp1.c_str(), len1);
-			
-			temp2 = temp1;
-			temp2.pop_back();
-			reverse(temp2.begin(), temp2.end());
-			temp2.push_back('A');
-			
-			int len2 = 0;
-			from1 = 'A';
-			for(auto to1: temp2) {
-				string r2code1, r2code2;
-				int r2len1 = 0;
-				
-				r2code1 = movepadMap[{from1,to1}];
-				
-				char from3 = 'A';
-				for(auto to3: r2code1) {
-					r2len1 += movepadMap[{from3,to3}].length();
-					from3 = to3;
-				}
-				
-				r2code2 = r2code1;
-				r2code2.pop_back();
-				reverse(r2code2.begin(), r2code2.end());
-				r2code2.push_back('A');
-				
-				int r2len2 = 0;
-				from3 = 'A';
-				for(auto to3: r2code2) {
-					r2len2 += movepadMap[{from3,to3}].length();
-					from3 = to3;
-				}
-				
-				if(r2len1 > r2len2) {
-					swap(r2len1, r2len2);
-				}
-				
-				len2 += r2len1;
-				
-				from1 = to1;
-			}
-			
-			// printf(" T2: %s %d\n", temp2.c_str(), len2);
-			
-			if(len1 > len2) {
-				swap(len1,len2);
-			}
-			
-			totalLen += len1;
-
-			from = to;
-		}
-		
-		printf("%s %d %d\n", code.c_str(), codeNum, totalLen);
+		auto len = findMinLength(code,2);
+		auto complexity = len * stoi(code.substr(0,3));
+		cout << code << " " << len << "\n";
+		total += complexity;
 	}
+
+	cout << total << "\n";
 
 	return 0;
 }

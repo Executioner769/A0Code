@@ -30,7 +30,7 @@ private:
 		
 		switch(opcode) {
 			case 0: {
-				A = A  >> getOp(false);
+				A = A >> getOp(false);
 				break;
 			}
 			case 1: {
